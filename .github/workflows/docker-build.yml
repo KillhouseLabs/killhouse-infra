@@ -1,0 +1,135 @@
+name: Build and Push Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to build'
+        required: true
+        type: choice
+        options:
+          - web-client
+          - scanner-api
+          - exploit-agent
+          - exploit-sandbox
+          - all
+      environment:
+        description: 'Environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+        default: dev
+
+env:
+  AWS_REGION: ap-northeast-2
+
+jobs:
+  build:
+    name: Build ${{ github.event.inputs.service }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout web-client
+        if: contains(fromJSON('["web-client", "all"]'), github.event.inputs.service)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/killhouse-web-client
+          path: web-client
+
+      - name: Checkout scanner-engine
+        if: contains(fromJSON('["scanner-api", "exploit-agent", "exploit-sandbox", "all"]'), github.event.inputs.service)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/killhouse-vuln-scanner-engine
+          path: scanner-engine
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push web-client
+        if: contains(fromJSON('["web-client", "all"]'), github.event.inputs.service)
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd web-client
+          docker build -t $ECR_REGISTRY/killhouse/web-client:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/killhouse/web-client:$IMAGE_TAG $ECR_REGISTRY/killhouse/web-client:latest
+          docker push $ECR_REGISTRY/killhouse/web-client:$IMAGE_TAG
+          docker push $ECR_REGISTRY/killhouse/web-client:latest
+
+      - name: Build and push scanner-api
+        if: contains(fromJSON('["scanner-api", "all"]'), github.event.inputs.service)
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd scanner-engine
+          docker build -f Dockerfile.api -t $ECR_REGISTRY/killhouse/scanner-api:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/killhouse/scanner-api:$IMAGE_TAG $ECR_REGISTRY/killhouse/scanner-api:latest
+          docker push $ECR_REGISTRY/killhouse/scanner-api:$IMAGE_TAG
+          docker push $ECR_REGISTRY/killhouse/scanner-api:latest
+
+      - name: Build and push exploit-agent
+        if: contains(fromJSON('["exploit-agent", "all"]'), github.event.inputs.service)
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd scanner-engine
+          docker build -f Dockerfile.agent -t $ECR_REGISTRY/killhouse/exploit-agent:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/killhouse/exploit-agent:$IMAGE_TAG $ECR_REGISTRY/killhouse/exploit-agent:latest
+          docker push $ECR_REGISTRY/killhouse/exploit-agent:$IMAGE_TAG
+          docker push $ECR_REGISTRY/killhouse/exploit-agent:latest
+
+      - name: Build and push exploit-sandbox
+        if: contains(fromJSON('["exploit-sandbox", "all"]'), github.event.inputs.service)
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd scanner-engine
+          docker build -f Dockerfile.sandbox -t $ECR_REGISTRY/killhouse/exploit-sandbox:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/killhouse/exploit-sandbox:$IMAGE_TAG $ECR_REGISTRY/killhouse/exploit-sandbox:latest
+          docker push $ECR_REGISTRY/killhouse/exploit-sandbox:$IMAGE_TAG
+          docker push $ECR_REGISTRY/killhouse/exploit-sandbox:latest
+
+  deploy:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event.inputs.service != 'exploit-agent' && github.event.inputs.service != 'exploit-sandbox'
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update ECS Service
+        run: |
+          CLUSTER="killhouse-cluster"
+
+          if [ "${{ github.event.inputs.service }}" = "web-client" ] || [ "${{ github.event.inputs.service }}" = "all" ]; then
+            echo "Updating web-client service..."
+            aws ecs update-service --cluster $CLUSTER --service web-client --force-new-deployment
+          fi
+
+          if [ "${{ github.event.inputs.service }}" = "scanner-api" ] || [ "${{ github.event.inputs.service }}" = "all" ]; then
+            echo "Updating scanner-api service..."
+            aws ecs update-service --cluster $CLUSTER --service scanner-api --force-new-deployment
+          fi
