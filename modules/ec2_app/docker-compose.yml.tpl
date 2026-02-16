@@ -50,6 +50,7 @@ services:
       - .env
     environment:
       SANDBOX_API_URL: "http://sandbox:8000"
+      DATABASE_URL: "sqlite+aiosqlite:///./sessions.db"
     restart: unless-stopped
 
   sandbox:
