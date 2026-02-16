@@ -22,6 +22,10 @@ on:
           - prod
         default: dev
 
+permissions:
+  id-token: write
+  contents: read
+
 env:
   AWS_REGION: ap-northeast-2
 
@@ -46,90 +50,163 @@ jobs:
           repository: ${{ github.repository_owner }}/killhouse-vuln-scanner-engine
           path: scanner-engine
 
+      - name: Checkout exploit-agent
+        if: contains(fromJSON('["exploit-agent", "all"]'), github.event.inputs.service)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/killhouse-exploit-agent
+          path: exploit-agent
+
+      - name: Checkout sandbox
+        if: contains(fromJSON('["exploit-sandbox", "all"]'), github.event.inputs.service)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/killhouse-sandbox
+          path: sandbox
+
+      # Capture source repo SHAs for image tagging
+      - name: Capture source SHAs
+        id: source-sha
+        run: |
+          if [ -d web-client ]; then
+            echo "web_client=$(git -C web-client rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -d scanner-engine ]; then
+            echo "scanner_engine=$(git -C scanner-engine rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -d exploit-agent ]; then
+            echo "exploit_agent=$(git -C exploit-agent rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -d sandbox ]; then
+            echo "sandbox=$(git -C sandbox rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push web-client
         if: contains(fromJSON('["web-client", "all"]'), github.event.inputs.service)
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          cd web-client
-          docker build -t $ECR_REGISTRY/killhouse/web-client:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/killhouse/web-client:$IMAGE_TAG $ECR_REGISTRY/killhouse/web-client:latest
-          docker push $ECR_REGISTRY/killhouse/web-client:$IMAGE_TAG
-          docker push $ECR_REGISTRY/killhouse/web-client:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: web-client
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/web-client:${{ steps.source-sha.outputs.web_client }}
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/web-client:latest
+          cache-from: type=gha,scope=web-client
+          cache-to: type=gha,mode=max,scope=web-client
 
       - name: Build and push scanner-api
         if: contains(fromJSON('["scanner-api", "all"]'), github.event.inputs.service)
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          cd scanner-engine
-          docker build -f Dockerfile.api -t $ECR_REGISTRY/killhouse/scanner-api:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/killhouse/scanner-api:$IMAGE_TAG $ECR_REGISTRY/killhouse/scanner-api:latest
-          docker push $ECR_REGISTRY/killhouse/scanner-api:$IMAGE_TAG
-          docker push $ECR_REGISTRY/killhouse/scanner-api:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: scanner-engine
+          file: scanner-engine/Dockerfile.api
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/scanner-api:${{ steps.source-sha.outputs.scanner_engine }}
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/scanner-api:latest
+          cache-from: type=gha,scope=scanner-api
+          cache-to: type=gha,mode=max,scope=scanner-api
 
       - name: Build and push exploit-agent
         if: contains(fromJSON('["exploit-agent", "all"]'), github.event.inputs.service)
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          cd scanner-engine
-          docker build -f Dockerfile.agent -t $ECR_REGISTRY/killhouse/exploit-agent:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/killhouse/exploit-agent:$IMAGE_TAG $ECR_REGISTRY/killhouse/exploit-agent:latest
-          docker push $ECR_REGISTRY/killhouse/exploit-agent:$IMAGE_TAG
-          docker push $ECR_REGISTRY/killhouse/exploit-agent:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: exploit-agent
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/exploit-agent:${{ steps.source-sha.outputs.exploit_agent }}
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/exploit-agent:latest
+          cache-from: type=gha,scope=exploit-agent
+          cache-to: type=gha,mode=max,scope=exploit-agent
 
       - name: Build and push exploit-sandbox
         if: contains(fromJSON('["exploit-sandbox", "all"]'), github.event.inputs.service)
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          cd scanner-engine
-          docker build -f Dockerfile.sandbox -t $ECR_REGISTRY/killhouse/exploit-sandbox:$IMAGE_TAG .
-          docker tag $ECR_REGISTRY/killhouse/exploit-sandbox:$IMAGE_TAG $ECR_REGISTRY/killhouse/exploit-sandbox:latest
-          docker push $ECR_REGISTRY/killhouse/exploit-sandbox:$IMAGE_TAG
-          docker push $ECR_REGISTRY/killhouse/exploit-sandbox:latest
+        uses: docker/build-push-action@v6
+        with:
+          context: sandbox
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/exploit-sandbox:${{ steps.source-sha.outputs.sandbox }}
+            ${{ steps.login-ecr.outputs.registry }}/killhouse/exploit-sandbox:latest
+          cache-from: type=gha,scope=exploit-sandbox
+          cache-to: type=gha,mode=max,scope=exploit-sandbox
 
   deploy:
-    name: Deploy to ECS
+    name: Deploy to EC2
     runs-on: ubuntu-latest
     needs: build
-    if: github.event.inputs.service != 'exploit-agent' && github.event.inputs.service != 'exploit-sandbox'
     environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Update ECS Service
+      - name: Get App Instance ID
+        id: get-instance
         run: |
-          CLUSTER="killhouse-cluster"
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=killhouse-app" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' \
+            --output text)
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
 
-          if [ "${{ github.event.inputs.service }}" = "web-client" ] || [ "${{ github.event.inputs.service }}" = "all" ]; then
-            echo "Updating web-client service..."
-            aws ecs update-service --cluster $CLUSTER --service web-client --force-new-deployment
+      - name: Deploy via SSM
+        id: deploy
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get-instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /opt/killhouse && aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com && docker compose pull --ignore-pull-failures && docker compose up -d && sleep 10 && docker compose ps"]' \
+            --query 'Command.CommandId' \
+            --output text)
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+          echo "Waiting for command $COMMAND_ID..."
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" || true
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query 'Status' \
+            --output text)
+
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get-instance.outputs.instance_id }}" \
+            --query '[Status, StandardOutputContent, StandardErrorContent]' \
+            --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::SSM command failed with status: $STATUS"
+            exit 1
           fi
 
-          if [ "${{ github.event.inputs.service }}" = "scanner-api" ] || [ "${{ github.event.inputs.service }}" = "all" ]; then
-            echo "Updating scanner-api service..."
-            aws ecs update-service --cluster $CLUSTER --service scanner-api --force-new-deployment
-          fi
+      - name: Health check
+        run: |
+          echo "Checking https://killhouselabs.duckdns.org/ ..."
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://killhouselabs.duckdns.org/ || true)
+            echo "Attempt $i: HTTP $HTTP_CODE"
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::warning::Health check failed after 5 attempts (last HTTP $HTTP_CODE). Deploy succeeded but site may not be ready yet."
