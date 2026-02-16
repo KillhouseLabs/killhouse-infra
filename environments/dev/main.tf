@@ -18,13 +18,11 @@ terraform {
     region         = "ap-northeast-2"
     encrypt        = true
     dynamodb_table = "killhouse-terraform-lock"
-    profile        = "killhouse"
   }
 }
 
 provider "aws" {
-  region  = var.region
-  profile = "killhouse"
+  region = var.region
 
   default_tags {
     tags = {
