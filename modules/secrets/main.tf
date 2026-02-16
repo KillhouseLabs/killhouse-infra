@@ -190,3 +190,13 @@ resource "aws_secretsmanager_secret" "supabase_key" {
     Service     = "scanner-api"
   }
 }
+
+resource "aws_secretsmanager_secret" "scanner_api_key" {
+  name        = "${var.project}/${var.environment}/scanner-api-key"
+  description = "Scanner API authentication key"
+
+  tags = {
+    Environment = var.environment
+    Service     = "scanner-api"
+  }
+}

@@ -22,6 +22,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      SCANNER_API_URL: "http://scanner-api:8080"
+      SANDBOX_API_URL: "http://sandbox:8000"
+      ANALYSIS_API_URL: "http://exploit-agent:8001"
     restart: unless-stopped
 
   scanner-api:

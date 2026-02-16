@@ -45,29 +45,78 @@ get_secret() {
     aws secretsmanager get-secret-value --secret-id "$arn" --query SecretString --output text --region ${region} 2>/dev/null || echo ""
 }
 
+# Database
 DATABASE_URL=$(get_secret "${database_url_secret_arn}")
 DIRECT_URL=$(get_secret "${direct_url_secret_arn}")
+
+# Auth
 AUTH_SECRET=$(get_secret "${auth_secret_arn}")
 AUTH_URL=$(get_secret "${auth_url_secret_arn}")
+
+# OAuth - GitHub
 GITHUB_CLIENT_ID=$(get_secret "${github_client_id_secret_arn}")
 GITHUB_CLIENT_SECRET=$(get_secret "${github_client_secret_arn}")
+
+# OAuth - Google
+GOOGLE_CLIENT_ID=$(get_secret "${google_client_id_secret_arn}")
+GOOGLE_CLIENT_SECRET=$(get_secret "${google_client_secret_secret_arn}")
+
+# OAuth - GitLab
+GITLAB_CLIENT_ID=$(get_secret "${gitlab_client_id_secret_arn}")
+GITLAB_CLIENT_SECRET=$(get_secret "${gitlab_client_secret_secret_arn}")
+
+# Payment - PortOne
 NEXT_PUBLIC_IMP_CODE=$(get_secret "${portone_imp_code_secret_arn}")
+NEXT_PUBLIC_PORTONE_CHANNEL_KEY=$(get_secret "${portone_channel_key_secret_arn}")
+PORTONE_REST_API_KEY=$(get_secret "${portone_api_key_secret_arn}")
+PORTONE_REST_API_SECRET=$(get_secret "${portone_api_secret_secret_arn}")
+
+# External services
 OPENAI_API_KEY=$(get_secret "${openai_api_key_secret_arn}")
 SUPABASE_URL=$(get_secret "${supabase_url_secret_arn}")
 SUPABASE_KEY=$(get_secret "${supabase_key_secret_arn}")
+SCANNER_API_KEY=$(get_secret "${scanner_api_key_secret_arn}")
 
 # Write .env file
 cat > /opt/killhouse/.env << EOF
+# Database
 DATABASE_URL=$${DATABASE_URL}
 DIRECT_URL=$${DIRECT_URL}
+
+# Auth
 AUTH_SECRET=$${AUTH_SECRET}
 AUTH_URL=$${AUTH_URL}
+NEXTAUTH_URL=$${AUTH_URL}
+NEXTAUTH_SECRET=$${AUTH_SECRET}
+
+# OAuth - GitHub
 GITHUB_CLIENT_ID=$${GITHUB_CLIENT_ID}
 GITHUB_CLIENT_SECRET=$${GITHUB_CLIENT_SECRET}
+
+# OAuth - Google
+GOOGLE_CLIENT_ID=$${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=$${GOOGLE_CLIENT_SECRET}
+
+# OAuth - GitLab
+GITLAB_CLIENT_ID=$${GITLAB_CLIENT_ID}
+GITLAB_CLIENT_SECRET=$${GITLAB_CLIENT_SECRET}
+
+# Payment - PortOne
 NEXT_PUBLIC_IMP_CODE=$${NEXT_PUBLIC_IMP_CODE}
+NEXT_PUBLIC_PORTONE_CHANNEL_KEY=$${NEXT_PUBLIC_PORTONE_CHANNEL_KEY}
+PORTONE_REST_API_KEY=$${PORTONE_REST_API_KEY}
+PORTONE_REST_API_SECRET=$${PORTONE_REST_API_SECRET}
+
+# External services
 OPENAI_API_KEY=$${OPENAI_API_KEY}
 SUPABASE_URL=$${SUPABASE_URL}
 SUPABASE_KEY=$${SUPABASE_KEY}
+
+# Internal service URLs (Docker Compose network)
+SCANNER_API_URL=http://scanner-api:8080
+SCANNER_API_KEY=$${SCANNER_API_KEY}
+SANDBOX_API_URL=http://sandbox:8000
+ANALYSIS_API_URL=http://exploit-agent:8001
 EOF
 
 chmod 600 /opt/killhouse/.env

@@ -87,6 +87,11 @@ output "supabase_key_arn" {
   value       = aws_secretsmanager_secret.supabase_key.arn
 }
 
+output "scanner_api_key_arn" {
+  description = "SCANNER_API_KEY secret ARN"
+  value       = aws_secretsmanager_secret.scanner_api_key.arn
+}
+
 # All secret ARNs for IAM policies
 output "all_secret_arns" {
   description = "List of all secret ARNs"
@@ -108,5 +113,6 @@ output "all_secret_arns" {
     aws_secretsmanager_secret.openai_api_key.arn,
     aws_secretsmanager_secret.supabase_url.arn,
     aws_secretsmanager_secret.supabase_key.arn,
+    aws_secretsmanager_secret.scanner_api_key.arn,
   ]
 }
