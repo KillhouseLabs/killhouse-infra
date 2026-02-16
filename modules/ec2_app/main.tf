@@ -28,17 +28,29 @@ resource "aws_instance" "app" {
     region           = var.region
     ecr_registry_url = var.ecr_registry_url
     environment      = var.environment
-    # Secret ARNs
-    database_url_secret_arn     = var.database_url_secret_arn
-    direct_url_secret_arn       = var.direct_url_secret_arn
-    auth_secret_arn             = var.auth_secret_arn
-    auth_url_secret_arn         = var.auth_url_secret_arn
-    github_client_id_secret_arn = var.github_client_id_secret_arn
-    github_client_secret_arn    = var.github_client_secret_secret_arn
-    portone_imp_code_secret_arn = var.portone_imp_code_secret_arn
-    openai_api_key_secret_arn   = var.openai_api_key_secret_arn
-    supabase_url_secret_arn     = var.supabase_url_secret_arn
-    supabase_key_secret_arn     = var.supabase_key_secret_arn
+    # Secret ARNs - Database
+    database_url_secret_arn = var.database_url_secret_arn
+    direct_url_secret_arn   = var.direct_url_secret_arn
+    # Secret ARNs - Auth
+    auth_secret_arn = var.auth_secret_arn
+    auth_url_secret_arn = var.auth_url_secret_arn
+    # Secret ARNs - OAuth
+    github_client_id_secret_arn     = var.github_client_id_secret_arn
+    github_client_secret_arn        = var.github_client_secret_secret_arn
+    google_client_id_secret_arn     = var.google_client_id_secret_arn
+    google_client_secret_secret_arn = var.google_client_secret_secret_arn
+    gitlab_client_id_secret_arn     = var.gitlab_client_id_secret_arn
+    gitlab_client_secret_secret_arn = var.gitlab_client_secret_secret_arn
+    # Secret ARNs - Payment
+    portone_imp_code_secret_arn    = var.portone_imp_code_secret_arn
+    portone_channel_key_secret_arn = var.portone_channel_key_secret_arn
+    portone_api_key_secret_arn     = var.portone_api_key_secret_arn
+    portone_api_secret_secret_arn  = var.portone_api_secret_secret_arn
+    # Secret ARNs - External services
+    openai_api_key_secret_arn  = var.openai_api_key_secret_arn
+    supabase_url_secret_arn    = var.supabase_url_secret_arn
+    supabase_key_secret_arn    = var.supabase_key_secret_arn
+    scanner_api_key_secret_arn = var.scanner_api_key_secret_arn
     # Config files (rendered from templates)
     caddyfile_content = local.caddyfile_content
     compose_content   = local.compose_content

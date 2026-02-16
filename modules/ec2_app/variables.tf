@@ -106,6 +106,46 @@ variable "supabase_key_secret_arn" {
   type        = string
 }
 
+variable "google_client_id_secret_arn" {
+  description = "Secrets Manager ARN for GOOGLE_CLIENT_ID"
+  type        = string
+}
+
+variable "google_client_secret_secret_arn" {
+  description = "Secrets Manager ARN for GOOGLE_CLIENT_SECRET"
+  type        = string
+}
+
+variable "gitlab_client_id_secret_arn" {
+  description = "Secrets Manager ARN for GITLAB_CLIENT_ID"
+  type        = string
+}
+
+variable "gitlab_client_secret_secret_arn" {
+  description = "Secrets Manager ARN for GITLAB_CLIENT_SECRET"
+  type        = string
+}
+
+variable "portone_channel_key_secret_arn" {
+  description = "Secrets Manager ARN for NEXT_PUBLIC_PORTONE_CHANNEL_KEY"
+  type        = string
+}
+
+variable "portone_api_key_secret_arn" {
+  description = "Secrets Manager ARN for PORTONE_REST_API_KEY"
+  type        = string
+}
+
+variable "portone_api_secret_secret_arn" {
+  description = "Secrets Manager ARN for PORTONE_REST_API_SECRET"
+  type        = string
+}
+
+variable "scanner_api_key_secret_arn" {
+  description = "Secrets Manager ARN for SCANNER_API_KEY"
+  type        = string
+}
+
 variable "enable_ssm" {
   description = "Enable SSM Session Manager for remote access"
   type        = bool

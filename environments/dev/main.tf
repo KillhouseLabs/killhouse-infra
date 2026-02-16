@@ -88,17 +88,35 @@ module "ec2_app" {
   ecr_registry_url      = module.ecr.registry_url
 
   # Secrets
-  secret_arns                     = module.secrets.all_secret_arns
-  database_url_secret_arn         = module.secrets.database_url_arn
-  direct_url_secret_arn           = module.secrets.direct_url_arn
-  auth_secret_arn                 = module.secrets.auth_secret_arn
-  auth_url_secret_arn             = module.secrets.auth_url_arn
+  secret_arns = module.secrets.all_secret_arns
+
+  # Database
+  database_url_secret_arn = module.secrets.database_url_arn
+  direct_url_secret_arn   = module.secrets.direct_url_arn
+
+  # Auth
+  auth_secret_arn = module.secrets.auth_secret_arn
+  auth_url_secret_arn = module.secrets.auth_url_arn
+
+  # OAuth
   github_client_id_secret_arn     = module.secrets.github_client_id_arn
   github_client_secret_secret_arn = module.secrets.github_client_secret_arn
-  portone_imp_code_secret_arn     = module.secrets.portone_imp_code_arn
-  openai_api_key_secret_arn       = module.secrets.openai_api_key_arn
-  supabase_url_secret_arn         = module.secrets.supabase_url_arn
-  supabase_key_secret_arn         = module.secrets.supabase_key_arn
+  google_client_id_secret_arn     = module.secrets.google_client_id_arn
+  google_client_secret_secret_arn = module.secrets.google_client_secret_arn
+  gitlab_client_id_secret_arn     = module.secrets.gitlab_client_id_arn
+  gitlab_client_secret_secret_arn = module.secrets.gitlab_client_secret_arn
+
+  # Payment
+  portone_imp_code_secret_arn    = module.secrets.portone_imp_code_arn
+  portone_channel_key_secret_arn = module.secrets.portone_channel_key_arn
+  portone_api_key_secret_arn     = module.secrets.portone_api_key_arn
+  portone_api_secret_secret_arn  = module.secrets.portone_api_secret_arn
+
+  # External services
+  openai_api_key_secret_arn  = module.secrets.openai_api_key_arn
+  supabase_url_secret_arn    = module.secrets.supabase_url_arn
+  supabase_key_secret_arn    = module.secrets.supabase_key_arn
+  scanner_api_key_secret_arn = module.secrets.scanner_api_key_arn
 }
 
 module "oidc" {
