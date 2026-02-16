@@ -55,11 +55,20 @@ resource "aws_security_group" "app" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # PostgreSQL outbound (Supabase)
+  # PostgreSQL outbound (Supabase direct + pooler)
   egress {
     description = "PostgreSQL outbound"
     from_port   = 5432
     to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Supabase PgBouncer pooler
+  egress {
+    description = "Supabase pooler outbound"
+    from_port   = 6543
+    to_port     = 6543
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
