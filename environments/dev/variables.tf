@@ -48,97 +48,49 @@ variable "admin_cidr" {
   default     = ""
 }
 
-# -----------------------------------------------------------------------------
-# Domain & SSL
-# -----------------------------------------------------------------------------
-
-variable "domain_name" {
-  description = "Primary domain name"
-  type        = string
-}
-
-variable "subject_alternative_names" {
-  description = "Additional domain names"
-  type        = list(string)
-  default     = []
-}
-
-variable "route53_zone_id" {
-  description = "Route53 hosted zone ID (empty to skip DNS setup)"
-  type        = string
-  default     = ""
-}
-
-# -----------------------------------------------------------------------------
-# ECS - Web Client
-# -----------------------------------------------------------------------------
-
-variable "web_client_image_tag" {
-  description = "Web client Docker image tag"
-  type        = string
-  default     = "latest"
-}
-
-variable "web_client_cpu" {
-  description = "Web client CPU units"
-  type        = number
-  default     = 512
-}
-
-variable "web_client_memory" {
-  description = "Web client memory in MB"
-  type        = number
-  default     = 1024
-}
-
-variable "web_client_desired_count" {
-  description = "Web client desired task count"
-  type        = number
-  default     = 1
-}
-
-# -----------------------------------------------------------------------------
-# ECS - Scanner API
-# -----------------------------------------------------------------------------
-
-variable "scanner_api_image_tag" {
-  description = "Scanner API Docker image tag"
-  type        = string
-  default     = "latest"
-}
-
-variable "scanner_api_cpu" {
-  description = "Scanner API CPU units"
-  type        = number
-  default     = 1024
-}
-
-variable "scanner_api_memory" {
-  description = "Scanner API memory in MB"
-  type        = number
-  default     = 2048
-}
-
-variable "scanner_api_desired_count" {
-  description = "Scanner API desired task count"
-  type        = number
-  default     = 1
-}
-
-variable "use_fargate_spot" {
-  description = "Use Fargate Spot for cost savings"
+variable "enable_flow_logs" {
+  description = "Enable VPC Flow Logs"
   type        = bool
   default     = true
 }
 
+variable "enable_vpc_endpoints" {
+  description = "Enable VPC Endpoints (adds ~$28/mo)"
+  type        = bool
+  default     = false
+}
+
 # -----------------------------------------------------------------------------
-# EC2 - Exploit Agent
+# Domain & TLS
 # -----------------------------------------------------------------------------
 
-variable "exploit_agent_instance_type" {
-  description = "EC2 instance type for exploit agent"
+variable "domain_name" {
+  description = "Primary domain name for Caddy TLS"
   type        = string
-  default     = "t3.medium"
+}
+
+variable "acme_email" {
+  description = "Email for Let's Encrypt ACME registration"
+  type        = string
+}
+
+# -----------------------------------------------------------------------------
+# EC2 - App
+# -----------------------------------------------------------------------------
+
+variable "app_instance_type" {
+  description = "EC2 instance type for app server"
+  type        = string
+  default     = "t3.large"
+}
+
+# -----------------------------------------------------------------------------
+# GitHub OIDC
+# -----------------------------------------------------------------------------
+
+variable "github_org" {
+  description = "GitHub organization or user name for OIDC trust"
+  type        = string
 }
 
 # -----------------------------------------------------------------------------

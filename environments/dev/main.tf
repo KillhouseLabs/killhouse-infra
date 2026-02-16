@@ -12,18 +12,19 @@ terraform {
     }
   }
 
-  # Uncomment to use S3 backend for state storage
-  # backend "s3" {
-  #   bucket         = "killhouse-terraform-state"
-  #   key            = "dev/terraform.tfstate"
-  #   region         = "ap-northeast-2"
-  #   encrypt        = true
-  #   dynamodb_table = "killhouse-terraform-lock"
-  # }
+  backend "s3" {
+    bucket         = "killhouse-terraform-state-935328470386"
+    key            = "dev/terraform.tfstate"
+    region         = "ap-northeast-2"
+    encrypt        = true
+    dynamodb_table = "killhouse-terraform-lock"
+    profile        = "killhouse"
+  }
 }
 
 provider "aws" {
-  region = var.region
+  region  = var.region
+  profile = "killhouse"
 
   default_tags {
     tags = {
@@ -51,12 +52,14 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  project            = local.project
-  environment        = local.environment
-  vpc_cidr           = var.vpc_cidr
-  availability_zones = var.availability_zones
-  enable_nat_gateway = var.enable_nat_gateway
-  admin_cidr         = var.admin_cidr
+  project              = local.project
+  environment          = local.environment
+  vpc_cidr             = var.vpc_cidr
+  availability_zones   = var.availability_zones
+  enable_nat_gateway   = var.enable_nat_gateway
+  admin_cidr           = var.admin_cidr
+  enable_flow_logs     = var.enable_flow_logs
+  enable_vpc_endpoints = var.enable_vpc_endpoints
 }
 
 module "ecr" {
@@ -73,61 +76,18 @@ module "secrets" {
   environment = local.environment
 }
 
-module "alb" {
-  source = "../../modules/alb"
-
-  project                   = local.project
-  environment               = local.environment
-  vpc_id                    = module.vpc.vpc_id
-  public_subnet_ids         = module.vpc.public_subnet_ids
-  alb_security_group_id     = module.vpc.alb_security_group_id
-  domain_name               = var.domain_name
-  subject_alternative_names = var.subject_alternative_names
-  route53_zone_id           = var.route53_zone_id
-}
-
-module "ec2_agent" {
-  source = "../../modules/ec2_agent"
-
-  project                   = local.project
-  environment               = local.environment
-  region                    = local.region
-  private_subnet_id         = module.vpc.private_subnet_ids[0]
-  agent_security_group_id   = module.vpc.agent_security_group_id
-  instance_type             = var.exploit_agent_instance_type
-  ecr_registry_url          = module.ecr.registry_url
-  secret_arns               = module.secrets.all_secret_arns
-  openai_api_key_secret_arn = module.secrets.openai_api_key_arn
-  supabase_url_secret_arn   = module.secrets.supabase_url_arn
-  supabase_key_secret_arn   = module.secrets.supabase_key_arn
-}
-
-module "ecs" {
-  source = "../../modules/ecs"
+module "ec2_app" {
+  source = "../../modules/ec2_app"
 
   project               = local.project
   environment           = local.environment
   region                = local.region
-  private_subnet_ids    = module.vpc.private_subnet_ids
-  ecs_security_group_id = module.vpc.ecs_security_group_id
-  use_spot              = var.use_fargate_spot
-
-  # Web Client
-  web_client_image            = module.ecr.web_client_repository_url
-  web_client_image_tag        = var.web_client_image_tag
-  web_client_cpu              = var.web_client_cpu
-  web_client_memory           = var.web_client_memory
-  web_client_desired_count    = var.web_client_desired_count
-  web_client_target_group_arn = module.alb.web_client_target_group_arn
-
-  # Scanner API
-  scanner_api_image            = module.ecr.scanner_api_repository_url
-  scanner_api_image_tag        = var.scanner_api_image_tag
-  scanner_api_cpu              = var.scanner_api_cpu
-  scanner_api_memory           = var.scanner_api_memory
-  scanner_api_desired_count    = var.scanner_api_desired_count
-  scanner_api_target_group_arn = module.alb.scanner_api_target_group_arn
-  exploit_agent_private_ip     = module.ec2_agent.private_ip
+  public_subnet_id      = module.vpc.public_subnet_ids[0]
+  app_security_group_id = module.vpc.app_security_group_id
+  instance_type         = var.app_instance_type
+  domain_name           = var.domain_name
+  acme_email            = var.acme_email
+  ecr_registry_url      = module.ecr.registry_url
 
   # Secrets
   secret_arns                     = module.secrets.all_secret_arns
@@ -143,18 +103,25 @@ module "ecs" {
   supabase_key_secret_arn         = module.secrets.supabase_key_arn
 }
 
+module "oidc" {
+  source = "../../modules/oidc"
+
+  project           = local.project
+  environment       = local.environment
+  github_org        = var.github_org
+  state_bucket_name = "killhouse-terraform-state-935328470386"
+  lock_table_name   = "killhouse-terraform-lock"
+}
+
 module "monitoring" {
   source = "../../modules/monitoring"
 
-  project                   = local.project
-  environment               = local.environment
-  region                    = local.region
-  alb_arn_suffix            = replace(module.alb.alb_arn, "/.*:loadbalancer\\//", "")
-  ecs_cluster_name          = module.ecs.cluster_name
-  ecs_service_names         = ["web-client", "scanner-api"]
-  exploit_agent_instance_id = module.ec2_agent.instance_id
-  create_sns_topic          = var.create_alarm_sns_topic
-  alarm_email               = var.alarm_email
+  project          = local.project
+  environment      = local.environment
+  region           = local.region
+  app_instance_id  = module.ec2_app.instance_id
+  create_sns_topic = var.create_alarm_sns_topic
+  alarm_email      = var.alarm_email
 }
 
 # -----------------------------------------------------------------------------
@@ -166,9 +133,19 @@ output "vpc_id" {
   value       = module.vpc.vpc_id
 }
 
-output "alb_dns_name" {
-  description = "ALB DNS name"
-  value       = module.alb.alb_dns_name
+output "app_public_ip" {
+  description = "App EC2 Elastic IP (set DNS A record to this)"
+  value       = module.ec2_app.public_ip
+}
+
+output "app_private_ip" {
+  description = "App EC2 private IP"
+  value       = module.ec2_app.private_ip
+}
+
+output "app_instance_id" {
+  description = "App EC2 instance ID (for SSM sessions)"
+  value       = module.ec2_app.instance_id
 }
 
 output "ecr_registry_url" {
@@ -176,14 +153,9 @@ output "ecr_registry_url" {
   value       = module.ecr.registry_url
 }
 
-output "ecs_cluster_name" {
-  description = "ECS cluster name"
-  value       = module.ecs.cluster_name
-}
-
-output "exploit_agent_private_ip" {
-  description = "Exploit Agent private IP"
-  value       = module.ec2_agent.private_ip
+output "github_actions_role_arn" {
+  description = "GitHub Actions OIDC role ARN"
+  value       = module.oidc.github_actions_role_arn
 }
 
 output "nat_gateway_ip" {

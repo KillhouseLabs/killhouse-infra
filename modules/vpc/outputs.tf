@@ -18,19 +18,9 @@ output "private_subnet_ids" {
   value       = aws_subnet.private[*].id
 }
 
-output "alb_security_group_id" {
-  description = "ALB security group ID"
-  value       = aws_security_group.alb.id
-}
-
-output "ecs_security_group_id" {
-  description = "ECS security group ID"
-  value       = aws_security_group.ecs.id
-}
-
-output "agent_security_group_id" {
-  description = "Exploit Agent security group ID"
-  value       = aws_security_group.agent.id
+output "app_security_group_id" {
+  description = "App EC2 security group ID"
+  value       = aws_security_group.app.id
 }
 
 output "nat_gateway_ip" {

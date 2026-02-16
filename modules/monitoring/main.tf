@@ -2,21 +2,21 @@
 # CloudWatch Alarms
 # -----------------------------------------------------------------------------
 
-# ALB 5xx Error Rate
-resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
-  alarm_name          = "${var.project}-alb-5xx-errors"
+# App EC2 Status Check
+resource "aws_cloudwatch_metric_alarm" "app_status_check" {
+  alarm_name          = "${var.project}-app-status"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
-  metric_name         = "HTTPCode_ELB_5XX_Count"
-  namespace           = "AWS/ApplicationELB"
+  metric_name         = "StatusCheckFailed"
+  namespace           = "AWS/EC2"
   period              = 300
-  statistic           = "Sum"
-  threshold           = 10
-  alarm_description   = "ALB 5xx errors exceeded threshold"
-  treat_missing_data  = "notBreaching"
+  statistic           = "Maximum"
+  threshold           = 0
+  alarm_description   = "App EC2 instance status check failed"
+  treat_missing_data  = "breaching"
 
   dimensions = {
-    LoadBalancer = var.alb_arn_suffix
+    InstanceId = var.app_instance_id
   }
 
   alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
@@ -27,77 +27,21 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
   }
 }
 
-# ECS Service CPU High
-resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
-  for_each = toset(var.ecs_service_names)
-
-  alarm_name          = "${var.project}-${each.value}-cpu-high"
+# App EC2 CPU High
+resource "aws_cloudwatch_metric_alarm" "app_cpu_high" {
+  alarm_name          = "${var.project}-app-cpu-high"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 3
   metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
-  period              = 300
-  statistic           = "Average"
-  threshold           = 80
-  alarm_description   = "ECS ${each.value} CPU utilization exceeded 80%"
-  treat_missing_data  = "notBreaching"
-
-  dimensions = {
-    ClusterName = var.ecs_cluster_name
-    ServiceName = each.value
-  }
-
-  alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
-
-  tags = {
-    Environment = var.environment
-  }
-}
-
-# ECS Service Memory High
-resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
-  for_each = toset(var.ecs_service_names)
-
-  alarm_name          = "${var.project}-${each.value}-memory-high"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 3
-  metric_name         = "MemoryUtilization"
-  namespace           = "AWS/ECS"
-  period              = 300
-  statistic           = "Average"
-  threshold           = 80
-  alarm_description   = "ECS ${each.value} memory utilization exceeded 80%"
-  treat_missing_data  = "notBreaching"
-
-  dimensions = {
-    ClusterName = var.ecs_cluster_name
-    ServiceName = each.value
-  }
-
-  alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
-
-  tags = {
-    Environment = var.environment
-  }
-}
-
-# EC2 Instance Status Check
-resource "aws_cloudwatch_metric_alarm" "ec2_status_check" {
-  count = var.exploit_agent_instance_id != "" ? 1 : 0
-
-  alarm_name          = "${var.project}-exploit-agent-status"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "StatusCheckFailed"
   namespace           = "AWS/EC2"
   period              = 300
-  statistic           = "Maximum"
-  threshold           = 0
-  alarm_description   = "Exploit Agent EC2 instance status check failed"
-  treat_missing_data  = "breaching"
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "App EC2 CPU utilization exceeded 80%"
+  treat_missing_data  = "notBreaching"
 
   dimensions = {
-    InstanceId = var.exploit_agent_instance_id
+    InstanceId = var.app_instance_id
   }
 
   alarm_actions = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
@@ -123,13 +67,13 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "ALB Request Count"
+          title  = "EC2 CPU Utilization"
           region = var.region
           metrics = [
-            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix]
+            ["AWS/EC2", "CPUUtilization", "InstanceId", var.app_instance_id]
           ]
           period = 300
-          stat   = "Sum"
+          stat   = "Average"
         }
       },
       {
@@ -139,10 +83,11 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "ALB Response Time"
+          title  = "EC2 Network In/Out"
           region = var.region
           metrics = [
-            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix]
+            ["AWS/EC2", "NetworkIn", "InstanceId", var.app_instance_id],
+            ["AWS/EC2", "NetworkOut", "InstanceId", var.app_instance_id]
           ]
           period = 300
           stat   = "Average"
@@ -155,11 +100,11 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "ECS CPU Utilization"
+          title  = "EC2 Disk Read/Write"
           region = var.region
           metrics = [
-            for svc in var.ecs_service_names :
-            ["AWS/ECS", "CPUUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", svc]
+            ["AWS/EC2", "DiskReadBytes", "InstanceId", var.app_instance_id],
+            ["AWS/EC2", "DiskWriteBytes", "InstanceId", var.app_instance_id]
           ]
           period = 300
           stat   = "Average"
@@ -172,33 +117,15 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title  = "ECS Memory Utilization"
+          title  = "EC2 Status Check"
           region = var.region
           metrics = [
-            for svc in var.ecs_service_names :
-            ["AWS/ECS", "MemoryUtilization", "ClusterName", var.ecs_cluster_name, "ServiceName", svc]
+            ["AWS/EC2", "StatusCheckFailed", "InstanceId", var.app_instance_id],
+            ["AWS/EC2", "StatusCheckFailed_Instance", "InstanceId", var.app_instance_id],
+            ["AWS/EC2", "StatusCheckFailed_System", "InstanceId", var.app_instance_id]
           ]
           period = 300
-          stat   = "Average"
-        }
-      },
-      {
-        type   = "metric"
-        x      = 0
-        y      = 12
-        width  = 24
-        height = 6
-        properties = {
-          title  = "ALB HTTP Codes"
-          region = var.region
-          metrics = [
-            ["AWS/ApplicationELB", "HTTPCode_Target_2XX_Count", "LoadBalancer", var.alb_arn_suffix],
-            ["AWS/ApplicationELB", "HTTPCode_Target_4XX_Count", "LoadBalancer", var.alb_arn_suffix],
-            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", var.alb_arn_suffix],
-            ["AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", "LoadBalancer", var.alb_arn_suffix]
-          ]
-          period = 300
-          stat   = "Sum"
+          stat   = "Maximum"
         }
       }
     ]

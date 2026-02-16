@@ -30,3 +30,15 @@ variable "admin_cidr" {
   type        = string
   default     = ""
 }
+
+variable "enable_flow_logs" {
+  description = "Enable VPC Flow Logs to CloudWatch"
+  type        = bool
+  default     = true
+}
+
+variable "enable_vpc_endpoints" {
+  description = "Enable VPC Endpoints (ECR, Secrets Manager, CloudWatch Logs, S3)"
+  type        = bool
+  default     = true
+}

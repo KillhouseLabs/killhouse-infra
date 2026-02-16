@@ -11,36 +11,27 @@ region      = "ap-northeast-2"
 vpc_cidr           = "10.0.0.0/16"
 availability_zones = ["ap-northeast-2a", "ap-northeast-2c"]
 enable_nat_gateway = true
-admin_cidr         = "YOUR_IP/32"  # Your IP for SSH access
+admin_cidr         = "YOUR_IP/32" # Your IP for SSH access (optional)
+
+# VPC Security
+enable_flow_logs     = true
+enable_vpc_endpoints = false # Set true for enhanced security (~$28/mo extra)
 
 # -----------------------------------------------------------------------------
-# Domain & SSL
+# Domain & TLS (Caddy + Let's Encrypt)
 # -----------------------------------------------------------------------------
-domain_name               = "dev.killhouse.io"
-subject_alternative_names = ["*.dev.killhouse.io"]
-route53_zone_id           = ""  # Leave empty if not using Route53
+domain_name = "killhouselabs.duckdns.org"
+acme_email  = "admin@killhouse.io"
 
 # -----------------------------------------------------------------------------
-# ECS - Web Client
+# EC2 - App (Caddy + all services via Docker Compose)
 # -----------------------------------------------------------------------------
-web_client_image_tag     = "latest"
-web_client_cpu           = 512
-web_client_memory        = 1024
-web_client_desired_count = 1
+app_instance_type = "t3.large"
 
 # -----------------------------------------------------------------------------
-# ECS - Scanner API
+# GitHub OIDC
 # -----------------------------------------------------------------------------
-scanner_api_image_tag     = "latest"
-scanner_api_cpu           = 1024
-scanner_api_memory        = 2048
-scanner_api_desired_count = 1
-use_fargate_spot          = true
-
-# -----------------------------------------------------------------------------
-# EC2 - Exploit Agent
-# -----------------------------------------------------------------------------
-exploit_agent_instance_type = "t3.medium"
+github_org = "your-github-org"
 
 # -----------------------------------------------------------------------------
 # Monitoring

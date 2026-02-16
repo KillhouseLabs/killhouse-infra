@@ -79,7 +79,7 @@ resource "aws_ecr_repository" "exploit_sandbox" {
 # -----------------------------------------------------------------------------
 
 resource "aws_ecr_lifecycle_policy" "cleanup" {
-  for_each   = toset([
+  for_each = toset([
     aws_ecr_repository.web_client.name,
     aws_ecr_repository.scanner_api.name,
     aws_ecr_repository.exploit_agent.name,
@@ -93,9 +93,9 @@ resource "aws_ecr_lifecycle_policy" "cleanup" {
         rulePriority = 1
         description  = "Keep last 10 images"
         selection = {
-          tagStatus     = "any"
-          countType     = "imageCountMoreThan"
-          countNumber   = 10
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 10
         }
         action = {
           type = "expire"
