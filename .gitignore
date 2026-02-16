@@ -10,6 +10,7 @@ crash.*.log
 # Terraform variables (may contain secrets)
 *.tfvars
 !*.tfvars.example
+!environments/dev/terraform.tfvars
 
 # Override files
 override.tf
