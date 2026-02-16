@@ -95,7 +95,7 @@ module "ec2_app" {
   direct_url_secret_arn   = module.secrets.direct_url_arn
 
   # Auth
-  auth_secret_arn = module.secrets.auth_secret_arn
+  auth_secret_arn     = module.secrets.auth_secret_arn
   auth_url_secret_arn = module.secrets.auth_url_arn
 
   # OAuth
