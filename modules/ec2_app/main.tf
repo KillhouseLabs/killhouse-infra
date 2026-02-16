@@ -32,7 +32,7 @@ resource "aws_instance" "app" {
     database_url_secret_arn = var.database_url_secret_arn
     direct_url_secret_arn   = var.direct_url_secret_arn
     # Secret ARNs - Auth
-    auth_secret_arn = var.auth_secret_arn
+    auth_secret_arn     = var.auth_secret_arn
     auth_url_secret_arn = var.auth_url_secret_arn
     # Secret ARNs - OAuth
     github_client_id_secret_arn     = var.github_client_id_secret_arn
