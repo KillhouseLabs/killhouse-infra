@@ -1,0 +1,170 @@
+# Template manifests for per-sandbox namespace resources.
+# sandbox-controller applies these programmatically via K8s API,
+# replacing SANDBOX_ID, IMAGE, PORT, etc. at creation time.
+#
+# This file serves as the canonical reference for sandbox structure.
+
+---
+# 1. Namespace per sandbox
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sandbox-SANDBOX_ID
+  labels:
+    killhouse.io/sandbox: "true"
+    killhouse.io/env-id: "SANDBOX_ID"
+    app.kubernetes.io/part-of: killhouse
+
+---
+# 2. NetworkPolicy - deny all, allow only from killhouse-system
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sandbox-isolation
+  namespace: sandbox-SANDBOX_ID
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow exploit-agent / scanner-api to reach sandbox
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: killhouse-system
+  egress:
+    # Allow internal communication (target-app <-> db services)
+    - to:
+        - podSelector: {}
+    # Allow DNS resolution
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+
+---
+# 3. ResourceQuota per sandbox
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: sandbox-quota
+  namespace: sandbox-SANDBOX_ID
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "5"
+
+---
+# 4. LimitRange - default container limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: sandbox-limits
+  namespace: sandbox-SANDBOX_ID
+spec:
+  limits:
+    - default:
+        cpu: 500m
+        memory: 512Mi
+      defaultRequest:
+        cpu: 100m
+        memory: 128Mi
+      type: Container
+
+---
+# 5. Target app pod (gVisor-isolated, untrusted user code)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: target-app
+  namespace: sandbox-SANDBOX_ID
+  labels:
+    killhouse.io/component: target
+    killhouse.io/env-id: "SANDBOX_ID"
+spec:
+  runtimeClassName: gvisor
+  automountServiceAccountToken: false
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+  containers:
+    - name: app
+      image: TARGET_IMAGE
+      ports:
+        - containerPort: TARGET_PORT
+      resources:
+        requests:
+          cpu: 250m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+  restartPolicy: Never
+
+---
+# 6. Optional: PostgreSQL sidecar (when detected)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: postgres
+  namespace: sandbox-SANDBOX_ID
+  labels:
+    killhouse.io/component: dependency
+    killhouse.io/env-id: "SANDBOX_ID"
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - name: postgres
+      image: postgres:16-alpine
+      ports:
+        - containerPort: 5432
+      env:
+        - name: POSTGRES_USER
+          value: "killhouse"
+        - name: POSTGRES_PASSWORD
+          value: "killhouse"
+        - name: POSTGRES_DB
+          value: "app"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+  restartPolicy: Never
+
+---
+# 7. Optional: Redis sidecar (when detected)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+  namespace: sandbox-SANDBOX_ID
+  labels:
+    killhouse.io/component: dependency
+    killhouse.io/env-id: "SANDBOX_ID"
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - name: redis
+      image: redis:7-alpine
+      ports:
+        - containerPort: 6379
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+  restartPolicy: Never
