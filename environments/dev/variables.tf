@@ -74,6 +74,12 @@ variable "acme_email" {
   type        = string
 }
 
+variable "monitor_domain_name" {
+  description = "Domain name for monitoring dashboard (Grafana)"
+  type        = string
+  default     = ""
+}
+
 # -----------------------------------------------------------------------------
 # EC2 - App
 # -----------------------------------------------------------------------------
@@ -106,5 +112,29 @@ variable "create_alarm_sns_topic" {
 variable "alarm_email" {
   description = "Email for alarm notifications"
   type        = string
+  default     = ""
+}
+
+# -----------------------------------------------------------------------------
+# LGTM Monitoring Stack
+# -----------------------------------------------------------------------------
+
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
+  type        = string
+  sensitive   = true
+  default     = "killhouse-admin"
+}
+
+variable "smtp_user" {
+  description = "SMTP user for Grafana email alerts (Gmail address)"
+  type        = string
+  default     = ""
+}
+
+variable "smtp_password" {
+  description = "SMTP password (Gmail App Password) for Grafana email alerts"
+  type        = string
+  sensitive   = true
   default     = ""
 }
