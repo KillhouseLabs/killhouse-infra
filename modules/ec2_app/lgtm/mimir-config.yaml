@@ -28,10 +28,6 @@ compactor:
     kvstore:
       store: memberlist
   deletion_delay: 2h
-  block_ranges_period:
-    - 2h
-    - 12h
-    - 24h
 
 limits:
   max_global_series_per_user: 50000

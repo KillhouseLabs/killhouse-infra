@@ -73,6 +73,15 @@ resource "aws_security_group" "app" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # SMTP outbound (Grafana alert emails via Gmail)
+  egress {
+    description = "SMTP outbound"
+    from_port   = 587
+    to_port     = 587
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   tags = {
     Name        = "${var.project}-app-sg"
     Environment = var.environment
