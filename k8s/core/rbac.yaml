@@ -1,0 +1,96 @@
+# ServiceAccount for sandbox-controller
+# Needs permissions to create/delete namespaces, pods, networkpolicies, resourcequotas
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sandbox-controller
+  namespace: killhouse-system
+  labels:
+    app.kubernetes.io/name: sandbox-controller
+    app.kubernetes.io/part-of: killhouse
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sandbox-controller
+  labels:
+    app.kubernetes.io/name: sandbox-controller
+    app.kubernetes.io/part-of: killhouse
+rules:
+  # Namespace lifecycle for sandbox-* namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "create", "delete"]
+  # Pod management in sandbox namespaces
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec", "services", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "delete"]
+  # Resource quotas and limit ranges
+  - apiGroups: [""]
+    resources: ["resourcequotas", "limitranges"]
+    verbs: ["get", "list", "create", "delete"]
+  # Network policies for sandbox isolation
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "delete"]
+  # Jobs for sandbox workloads
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sandbox-controller
+  labels:
+    app.kubernetes.io/name: sandbox-controller
+    app.kubernetes.io/part-of: killhouse
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sandbox-controller
+subjects:
+  - kind: ServiceAccount
+    name: sandbox-controller
+    namespace: killhouse-system
+---
+# ServiceAccount for scanner-api (read-only cluster access)
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scanner-api
+  namespace: killhouse-system
+  labels:
+    app.kubernetes.io/name: scanner-api
+    app.kubernetes.io/part-of: killhouse
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: scanner-api
+  labels:
+    app.kubernetes.io/name: scanner-api
+    app.kubernetes.io/part-of: killhouse
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: scanner-api
+  labels:
+    app.kubernetes.io/name: scanner-api
+    app.kubernetes.io/part-of: killhouse
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: scanner-api
+subjects:
+  - kind: ServiceAccount
+    name: scanner-api
+    namespace: killhouse-system
