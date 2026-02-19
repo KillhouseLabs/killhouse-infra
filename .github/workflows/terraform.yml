@@ -77,7 +77,10 @@ jobs:
 
       - name: Terraform Plan
         working-directory: environments/dev
-        run: terraform plan -no-color
+        run: |
+          terraform plan -no-color \
+            -var="grafana_admin_password=${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+            -var="smtp_password=${{ secrets.SMTP_PASSWORD }}"
         continue-on-error: true
 
   apply-dev:
@@ -108,4 +111,7 @@ jobs:
 
       - name: Terraform Apply
         working-directory: environments/dev
-        run: terraform apply -auto-approve
+        run: |
+          terraform apply -auto-approve \
+            -var="grafana_admin_password=${{ secrets.GRAFANA_ADMIN_PASSWORD }}" \
+            -var="smtp_password=${{ secrets.SMTP_PASSWORD }}"

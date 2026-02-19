@@ -84,6 +84,7 @@ module "ec2_app" {
   app_security_group_id = module.vpc.app_security_group_id
   instance_type         = var.app_instance_type
   domain_name           = var.domain_name
+  monitor_domain_name   = var.monitor_domain_name
   acme_email            = var.acme_email
   ecr_registry_url      = module.ecr.registry_url
 
@@ -117,6 +118,11 @@ module "ec2_app" {
   supabase_url_secret_arn    = module.secrets.supabase_url_arn
   supabase_key_secret_arn    = module.secrets.supabase_key_arn
   scanner_api_key_secret_arn = module.secrets.scanner_api_key_arn
+
+  # LGTM Monitoring
+  grafana_admin_password = var.grafana_admin_password
+  smtp_user              = var.smtp_user
+  smtp_password          = var.smtp_password
 }
 
 module "oidc" {
@@ -177,4 +183,9 @@ output "github_actions_role_arn" {
 output "nat_gateway_ip" {
   description = "NAT Gateway public IP (for allowlisting)"
   value       = module.vpc.nat_gateway_ip
+}
+
+output "grafana_url" {
+  description = "Grafana dashboard URL"
+  value       = "https://${var.monitor_domain_name}/"
 }

@@ -51,9 +51,6 @@ resource "aws_instance" "app" {
     supabase_url_secret_arn    = var.supabase_url_secret_arn
     supabase_key_secret_arn    = var.supabase_key_secret_arn
     scanner_api_key_secret_arn = var.scanner_api_key_secret_arn
-    # Config files (rendered from templates)
-    caddyfile_content = local.caddyfile_content
-    compose_content   = local.compose_content
   }))
 
   root_block_device {
@@ -204,34 +201,94 @@ resource "aws_iam_role_policy_attachment" "app_ssm" {
 
 locals {
   caddyfile_content = templatefile("${path.module}/Caddyfile.tpl", {
-    domain_name = var.domain_name
-    acme_email  = var.acme_email
+    domain_name         = var.domain_name
+    monitor_domain_name = var.monitor_domain_name
+    acme_email          = var.acme_email
   })
   compose_content = templatefile("${path.module}/docker-compose.yml.tpl", {
-    ecr_registry_url = var.ecr_registry_url
-    environment      = var.environment
+    ecr_registry_url       = var.ecr_registry_url
+    environment            = var.environment
+    domain_name            = var.domain_name
+    monitor_domain_name    = var.monitor_domain_name
+    grafana_admin_password = var.grafana_admin_password
+    smtp_user              = var.smtp_user
+    smtp_password          = var.smtp_password
   })
+
+  # LGTM config files (static, no template variables needed)
+  loki_config  = file("${path.module}/lgtm/loki-config.yaml")
+  mimir_config = file("${path.module}/lgtm/mimir-config.yaml")
+  alloy_config = file("${path.module}/lgtm/alloy-config.alloy")
+
+  # Grafana provisioning files
+  grafana_datasources   = file("${path.module}/lgtm/grafana/provisioning/datasources/datasources.yaml")
+  grafana_contactpoints = file("${path.module}/lgtm/grafana/provisioning/alerting/contactpoints.yaml")
+  grafana_policies      = file("${path.module}/lgtm/grafana/provisioning/alerting/policies.yaml")
+  grafana_rules         = file("${path.module}/lgtm/grafana/provisioning/alerting/rules.yaml")
 }
 
 resource "local_file" "ssm_config_sync" {
   filename = "${path.module}/.ssm-config-sync.json"
   content = jsonencode({
     commands = concat(
+      # Caddyfile
       ["cat > /opt/killhouse/Caddyfile << '____CADDYEOF'"],
       split("\n", local.caddyfile_content),
       ["____CADDYEOF"],
+      # docker-compose.yml
       ["cat > /opt/killhouse/docker-compose.yml << '____COMPOSEEOF'"],
       split("\n", local.compose_content),
       ["____COMPOSEEOF"],
-      ["cd /opt/killhouse && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || echo 'Caddy not running, skip reload'"]
+      # LGTM config directory structure
+      ["mkdir -p /opt/killhouse/lgtm/grafana/provisioning/{datasources,alerting}"],
+      # Loki config
+      ["cat > /opt/killhouse/lgtm/loki-config.yaml << '____LOKIEOF'"],
+      split("\n", local.loki_config),
+      ["____LOKIEOF"],
+      # Mimir config
+      ["cat > /opt/killhouse/lgtm/mimir-config.yaml << '____MIMIREOF'"],
+      split("\n", local.mimir_config),
+      ["____MIMIREOF"],
+      # Alloy config
+      ["cat > /opt/killhouse/lgtm/alloy-config.alloy << '____ALLOYEOF'"],
+      split("\n", local.alloy_config),
+      ["____ALLOYEOF"],
+      # Grafana datasources
+      ["cat > /opt/killhouse/lgtm/grafana/provisioning/datasources/datasources.yaml << '____DSEOF'"],
+      split("\n", local.grafana_datasources),
+      ["____DSEOF"],
+      # Grafana alerting - contact points
+      ["cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/contactpoints.yaml << '____CPEOF'"],
+      split("\n", local.grafana_contactpoints),
+      ["____CPEOF"],
+      # Grafana alerting - policies
+      ["cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/policies.yaml << '____POLEOF'"],
+      split("\n", local.grafana_policies),
+      ["____POLEOF"],
+      # Grafana alerting - rules
+      ["cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/rules.yaml << '____RULEEOF'"],
+      split("\n", local.grafana_rules),
+      ["____RULEEOF"],
+      # ECR login, pull new images, and restart all services
+      ["cd /opt/killhouse && aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${var.ecr_registry_url} 2>/dev/null || true"],
+      ["cd /opt/killhouse && docker compose pull 2>/dev/null || true"],
+      ["cd /opt/killhouse && docker compose up -d"],
+      ["cd /opt/killhouse && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || echo 'Caddy not running yet, will start with compose'"]
     )
   })
 }
 
 resource "terraform_data" "config_sync" {
   triggers_replace = {
-    caddyfile = sha256(local.caddyfile_content)
-    compose   = sha256(local.compose_content)
+    caddyfile     = sha256(local.caddyfile_content)
+    compose       = sha256(local.compose_content)
+    loki_config   = sha256(local.loki_config)
+    mimir_config  = sha256(local.mimir_config)
+    alloy_config  = sha256(local.alloy_config)
+    grafana_ds    = sha256(local.grafana_datasources)
+    grafana_cp    = sha256(local.grafana_contactpoints)
+    grafana_pol   = sha256(local.grafana_policies)
+    grafana_rules = sha256(local.grafana_rules)
   }
 
   provisioner "local-exec" {

@@ -1,0 +1,48 @@
+multitenancy_enabled: false
+
+server:
+  log_level: warn
+
+distributor:
+  ring:
+    kvstore:
+      store: memberlist
+
+ingester:
+  ring:
+    kvstore:
+      store: memberlist
+    replication_factor: 1
+
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/blocks
+  tsdb:
+    dir: /data/tsdb
+    retention_period: 72h
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: memberlist
+  deletion_delay: 2h
+
+limits:
+  max_global_series_per_user: 50000
+  ingestion_rate: 10000
+  ingestion_burst_size: 50000
+  compactor_blocks_retention_period: 72h
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+ruler_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/rules
+
+memberlist:
+  join_members: []

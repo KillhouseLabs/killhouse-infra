@@ -11,6 +11,16 @@ dnf update -y
 
 # Install Docker
 dnf install -y docker
+
+# Enable Docker daemon metrics for Alloy to scrape
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json << 'DOCKERCFG'
+{
+  "metrics-addr": "0.0.0.0:9323",
+  "experimental": true
+}
+DOCKERCFG
+
 systemctl enable docker
 systemctl start docker
 
@@ -121,21 +131,11 @@ EOF
 
 chmod 600 /opt/killhouse/.env
 
-# Write Caddyfile
-cat > /opt/killhouse/Caddyfile << 'CADDYEOF'
-${caddyfile_content}
-CADDYEOF
-
-# Write docker-compose.yml
-cat > /opt/killhouse/docker-compose.yml << 'COMPOSEEOF'
-${compose_content}
-COMPOSEEOF
-
-# Pull images and start services
-echo "=== Starting Docker Compose services ==="
-cd /opt/killhouse
-docker compose pull || echo "Some images not available yet, will retry"
-docker compose up -d || echo "Docker Compose start deferred"
+# Config files (Caddyfile, docker-compose.yml, LGTM configs) are pushed
+# via SSM config sync after terraform apply. On first boot, the systemd
+# service will start once configs arrive.
+echo "=== Preparing directory structure ==="
+mkdir -p /opt/killhouse/lgtm/grafana/provisioning/{datasources,alerting}
 
 # Create systemd service for killhouse
 cat > /etc/systemd/system/killhouse.service << 'SERVICEEOF'
@@ -230,7 +230,7 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWAG
       }
     },
     "append_dimensions": {
-      "InstanceId": "${aws:InstanceId}"
+      "InstanceId": "$${aws:InstanceId}"
     }
   }
 }

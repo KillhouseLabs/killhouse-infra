@@ -4,10 +4,11 @@
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
+tfplan
 crash.log
 crash.*.log
 
-# Terraform variables (may contain secrets)
+# Terraform variables
 *.tfvars
 !*.tfvars.example
 !environments/dev/terraform.tfvars

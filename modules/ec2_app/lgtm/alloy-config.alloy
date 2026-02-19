@@ -1,0 +1,114 @@
+// =============================================================================
+// Alloy Configuration - Docker Compose LGTM Collector
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Docker Discovery - find all running containers
+// -----------------------------------------------------------------------------
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// -----------------------------------------------------------------------------
+// Relabel - extract container name and service labels
+// -----------------------------------------------------------------------------
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "project"
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Metrics - scrape node-level metrics via Alloy's built-in
+// -----------------------------------------------------------------------------
+
+// Node Exporter - host metrics (CPU, memory, disk, network)
+prometheus.exporter.unix "host" {
+  procfs_path = "/host/proc"
+  sysfs_path  = "/host/sys"
+  rootfs_path = "/host/root"
+  disable_collectors = [
+    "arp", "bonding", "btrfs", "conntrack", "fibrechannel",
+    "infiniband", "ipvs", "mdadm", "nfs", "nfsd", "nvme",
+    "powersupplyclass", "pressure", "rapl", "schedstat",
+    "selinux", "softnet", "tapestats", "textfile", "thermal_zone",
+    "timex", "udp_queues", "xfs", "zfs",
+  ]
+}
+
+prometheus.scrape "node" {
+  targets    = prometheus.exporter.unix.host.targets
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "30s"
+}
+
+// Docker container metrics via cAdvisor-like metrics from Docker
+prometheus.scrape "docker_metrics" {
+  targets = [{
+    __address__ = "host.docker.internal:9323",
+  }]
+  forward_to      = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "30s"
+  // Docker daemon must have metrics enabled (--metrics-addr)
+  // If not available, this scrape will silently fail
+}
+
+// Alloy self-monitoring
+prometheus.scrape "alloy_self" {
+  targets    = [{"__address__" = "127.0.0.1:12345"}]
+  forward_to = [prometheus.remote_write.mimir.receiver]
+  scrape_interval = "60s"
+}
+
+// Remote write to Mimir
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = "http://mimir:9009/api/v1/push"
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Logs - collect Docker container logs via Loki
+// -----------------------------------------------------------------------------
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  // Add static labels
+  stage.static_labels {
+    values = {
+      env = "production",
+    }
+  }
+
+  // Drop debug/trace logs to save space
+  stage.drop {
+    expression = "(?i)(DEBUG|TRACE)"
+    drop_counter_reason = "debug_trace_filter"
+  }
+
+  forward_to = [loki.write.loki.receiver]
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
