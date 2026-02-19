@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scanner-api
+  namespace: killhouse-system
+  labels:
+    app.kubernetes.io/name: scanner-api
+    app.kubernetes.io/part-of: killhouse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: scanner-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: scanner-api
+        app.kubernetes.io/part-of: killhouse
+    spec:
+      serviceAccountName: scanner-api
+      containers:
+        - name: scanner-api
+          image: REGISTRY/killhouse/scanner-api:v0.1.0
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ENVIRONMENT
+              value: "staging"
+            - name: PORT
+              value: "8080"
+            - name: EXPLOIT_AGENT_URL
+              value: "http://exploit-agent:8001"
+            - name: CONTAINER_RUNTIME
+              value: "kubernetes"
+          envFrom:
+            - secretRef:
+                name: killhouse-env
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1536Mi
+          securityContext:
+            runAsUser: 1000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scanner-api
+  namespace: killhouse-system
+  labels:
+    app.kubernetes.io/name: scanner-api
+    app.kubernetes.io/part-of: killhouse
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: scanner-api
