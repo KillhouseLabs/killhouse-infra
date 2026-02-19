@@ -121,15 +121,16 @@ case $ACTION in
     *)
         echo "Usage: $0 <environment> <action>"
         echo ""
-        echo "Environments: dev, prod"
+        echo "Environments: dev, staging, prod"
         echo "Actions: init, plan, apply, destroy, output, ec2-deploy"
         echo ""
         echo "Examples:"
-        echo "  $0 dev init        # Initialize Terraform for dev"
-        echo "  $0 dev plan        # Plan changes for dev"
-        echo "  $0 dev apply       # Apply changes to dev"
-        echo "  $0 dev ec2-deploy  # Deploy latest images to EC2"
-        echo "  $0 prod plan       # Plan changes for prod"
+        echo "  $0 dev init           # Initialize Terraform for dev"
+        echo "  $0 dev plan           # Plan changes for dev"
+        echo "  $0 dev apply          # Apply changes to dev"
+        echo "  $0 dev ec2-deploy     # Deploy latest images to EC2"
+        echo "  $0 staging plan       # Plan k3s cluster changes"
+        echo "  $0 staging apply      # Apply k3s cluster (requires TF_VAR_k3s_token)"
         exit 1
         ;;
 esac

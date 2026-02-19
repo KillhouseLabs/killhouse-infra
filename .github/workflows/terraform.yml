@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feature/k8s-migration
     paths:
       - 'modules/**'
       - 'environments/**'
@@ -109,3 +110,68 @@ jobs:
       - name: Terraform Apply
         working-directory: environments/dev
         run: terraform apply -auto-approve
+
+  # ---------------------------------------------------------------------------
+  # Staging (k3s cluster) - only on feature/k8s-migration branch
+  # ---------------------------------------------------------------------------
+
+  plan-staging:
+    name: Plan (Staging)
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: environments/staging
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: environments/staging
+        run: terraform plan -no-color -var="k3s_token=${{ secrets.K3S_TOKEN }}"
+        continue-on-error: true
+
+  apply-staging:
+    name: Apply (Staging)
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/feature/k8s-migration' && github.event_name == 'push'
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        working-directory: environments/staging
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: environments/staging
+        run: terraform apply -auto-approve -var="k3s_token=${{ secrets.K3S_TOKEN }}"
