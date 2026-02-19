@@ -12,6 +12,11 @@ services:
     depends_on:
       - web-client
       - scanner-api
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
 
   web-client:
     image: ${ecr_registry_url}/killhouse/web-client:latest
@@ -26,6 +31,11 @@ services:
       SANDBOX_API_URL: "http://sandbox:8000"
       ANALYSIS_API_URL: "http://exploit-agent:8001"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 1536M
 
   scanner-api:
     image: ${ecr_registry_url}/killhouse/scanner-api:latest
@@ -38,9 +48,15 @@ services:
       PORT: "8080"
       EXPLOIT_AGENT_URL: "http://exploit-agent:8001"
       CONTAINER_RUNTIME: docker
+      CORS_ALLOWED_ORIGINS: "https://${domain_name}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 1536M
 
   exploit-agent:
     image: ${ecr_registry_url}/killhouse/exploit-agent:latest
@@ -51,7 +67,13 @@ services:
     environment:
       SANDBOX_API_URL: "http://sandbox:8000"
       DATABASE_URL: "sqlite+aiosqlite:///./sessions.db"
+      CORS_ALLOWED_ORIGINS: "https://${domain_name}"
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 1024M
 
   sandbox:
     image: ${ecr_registry_url}/killhouse/exploit-sandbox:latest
@@ -59,9 +81,16 @@ services:
       - "8000"
     env_file:
       - .env
+    environment:
+      CORS_ALLOWED_ORIGINS: "https://${domain_name}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 2048M
 
 volumes:
   caddy_data:
