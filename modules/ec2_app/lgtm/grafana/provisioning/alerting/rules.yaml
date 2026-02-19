@@ -1,0 +1,232 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Infrastructure
+    folder: Killhouse Alerts
+    interval: 1m
+    rules:
+      # -----------------------------------------------------------------------
+      # CPU Usage High
+      # -----------------------------------------------------------------------
+      - uid: cpu-high
+        title: "CPU Usage High (>80%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              expr: '100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+              intervalMs: 30000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [80]
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU usage is above 80%"
+          description: "CPU usage has been above 80% for more than 5 minutes. Current value: {{ $values.B }}%"
+
+      # -----------------------------------------------------------------------
+      # Memory Usage High
+      # -----------------------------------------------------------------------
+      - uid: memory-high
+        title: "Memory Usage High (>85%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              expr: '(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100'
+              intervalMs: 30000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [85]
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory usage is above 85%"
+          description: "Memory usage has been above 85% for more than 5 minutes. Current value: {{ $values.B }}%"
+
+      # -----------------------------------------------------------------------
+      # Disk Usage High
+      # -----------------------------------------------------------------------
+      - uid: disk-high
+        title: "Disk Usage High (>80%)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: mimir
+            model:
+              expr: '(1 - node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100'
+              intervalMs: 30000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [80]
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host disk usage is above 80%"
+          description: "Root filesystem usage has been above 80% for more than 5 minutes. Current value: {{ $values.B }}%"
+
+  - orgId: 1
+    name: Application
+    folder: Killhouse Alerts
+    interval: 1m
+    rules:
+      # -----------------------------------------------------------------------
+      # Service Log Absence - Web Client (no logs = likely down)
+      # -----------------------------------------------------------------------
+      - uid: web-client-silent
+        title: "Web Client Not Producing Logs"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'count_over_time({service="web-client"}[10m])'
+              intervalMs: 30000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Web client service may be down"
+          description: "No logs from web-client container in the last 10 minutes."
+
+      # -----------------------------------------------------------------------
+      # High Error Rate in Logs
+      # -----------------------------------------------------------------------
+      - uid: high-error-rate
+        title: "High Error Rate in Logs"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              expr: 'sum(rate({service=~".+"} |~ "(?i)(error|exception|fatal)" [5m])) > 0'
+              intervalMs: 30000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0.5]
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected in application logs"
+          description: "Error log rate has exceeded 0.5/s for more than 5 minutes."

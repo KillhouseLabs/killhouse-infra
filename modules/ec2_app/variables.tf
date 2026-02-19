@@ -40,6 +40,12 @@ variable "domain_name" {
   type        = string
 }
 
+variable "monitor_domain_name" {
+  description = "Domain name for monitoring dashboard (e.g., monitor.killhouse.io)"
+  type        = string
+  default     = ""
+}
+
 variable "acme_email" {
   description = "Email for Let's Encrypt ACME registration"
   type        = string
@@ -150,4 +156,25 @@ variable "enable_ssm" {
   description = "Enable SSM Session Manager for remote access"
   type        = bool
   default     = true
+}
+
+# LGTM Monitoring
+variable "grafana_admin_password" {
+  description = "Grafana admin password"
+  type        = string
+  sensitive   = true
+  default     = "killhouse-admin"
+}
+
+variable "smtp_user" {
+  description = "SMTP user for Grafana email alerts (Gmail address)"
+  type        = string
+  default     = ""
+}
+
+variable "smtp_password" {
+  description = "SMTP password (Gmail App Password) for Grafana email alerts"
+  type        = string
+  sensitive   = true
+  default     = ""
 }

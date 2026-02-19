@@ -11,6 +11,16 @@ dnf update -y
 
 # Install Docker
 dnf install -y docker
+
+# Enable Docker daemon metrics for Alloy to scrape
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json << 'DOCKERCFG'
+{
+  "metrics-addr": "0.0.0.0:9323",
+  "experimental": true
+}
+DOCKERCFG
+
 systemctl enable docker
 systemctl start docker
 
@@ -130,6 +140,38 @@ CADDYEOF
 cat > /opt/killhouse/docker-compose.yml << 'COMPOSEEOF'
 ${compose_content}
 COMPOSEEOF
+
+# === LGTM Monitoring Config Files ===
+echo "=== Writing LGTM monitoring configs ==="
+mkdir -p /opt/killhouse/lgtm/grafana/provisioning/{datasources,alerting}
+
+cat > /opt/killhouse/lgtm/loki-config.yaml << 'LOKICFG'
+${loki_config}
+LOKICFG
+
+cat > /opt/killhouse/lgtm/mimir-config.yaml << 'MIMIRCFG'
+${mimir_config}
+MIMIRCFG
+
+cat > /opt/killhouse/lgtm/alloy-config.alloy << 'ALLOYCFG'
+${alloy_config}
+ALLOYCFG
+
+cat > /opt/killhouse/lgtm/grafana/provisioning/datasources/datasources.yaml << 'DSCFG'
+${grafana_datasources}
+DSCFG
+
+cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/contactpoints.yaml << 'CPCFG'
+${grafana_contactpoints}
+CPCFG
+
+cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/policies.yaml << 'POLCFG'
+${grafana_policies}
+POLCFG
+
+cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/rules.yaml << 'RULECFG'
+${grafana_rules}
+RULECFG
 
 # Pull images and start services
 echo "=== Starting Docker Compose services ==="

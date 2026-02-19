@@ -1,0 +1,12 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: killhouse-ops-email
+    receivers:
+      - uid: email-ops
+        type: email
+        settings:
+          addresses: "lonelynight1026@gmail.com;ojkk371@gmail.com"
+          singleEmail: false
+        disableResolveMessage: false
