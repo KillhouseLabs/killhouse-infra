@@ -221,10 +221,10 @@ locals {
   alloy_config = file("${path.module}/lgtm/alloy-config.alloy")
 
   # Grafana provisioning files
-  grafana_datasources  = file("${path.module}/lgtm/grafana/provisioning/datasources/datasources.yaml")
+  grafana_datasources   = file("${path.module}/lgtm/grafana/provisioning/datasources/datasources.yaml")
   grafana_contactpoints = file("${path.module}/lgtm/grafana/provisioning/alerting/contactpoints.yaml")
-  grafana_policies     = file("${path.module}/lgtm/grafana/provisioning/alerting/policies.yaml")
-  grafana_rules        = file("${path.module}/lgtm/grafana/provisioning/alerting/rules.yaml")
+  grafana_policies      = file("${path.module}/lgtm/grafana/provisioning/alerting/policies.yaml")
+  grafana_rules         = file("${path.module}/lgtm/grafana/provisioning/alerting/rules.yaml")
 }
 
 resource "local_file" "ssm_config_sync" {
