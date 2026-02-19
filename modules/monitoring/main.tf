@@ -51,6 +51,54 @@ resource "aws_cloudwatch_metric_alarm" "app_cpu_high" {
   }
 }
 
+# App EC2 Memory High
+resource "aws_cloudwatch_metric_alarm" "app_memory_high" {
+  alarm_name          = "${var.project}-${var.environment}-memory-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "mem_used_percent"
+  namespace           = "CWAgent"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "Memory usage exceeds 85%"
+  alarm_actions       = var.create_sns_topic ? [aws_sns_topic.alarms[0].arn] : (var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : [])
+
+  dimensions = {
+    InstanceId = var.app_instance_id
+  }
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+# App EC2 Disk High
+resource "aws_cloudwatch_metric_alarm" "app_disk_high" {
+  alarm_name          = "${var.project}-${var.environment}-disk-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "disk_used_percent"
+  namespace           = "CWAgent"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "Disk usage exceeds 80%"
+  alarm_actions       = var.create_sns_topic ? [aws_sns_topic.alarms[0].arn] : (var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : [])
+
+  dimensions = {
+    InstanceId = var.app_instance_id
+    path       = "/"
+    fstype     = "xfs"
+  }
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
 # -----------------------------------------------------------------------------
 # CloudWatch Dashboard
 # -----------------------------------------------------------------------------
