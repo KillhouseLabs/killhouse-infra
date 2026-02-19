@@ -51,17 +51,6 @@ resource "aws_instance" "app" {
     supabase_url_secret_arn    = var.supabase_url_secret_arn
     supabase_key_secret_arn    = var.supabase_key_secret_arn
     scanner_api_key_secret_arn = var.scanner_api_key_secret_arn
-    # Config files (rendered from templates)
-    caddyfile_content = local.caddyfile_content
-    compose_content   = local.compose_content
-    # LGTM monitoring config files
-    loki_config           = local.loki_config
-    mimir_config          = local.mimir_config
-    alloy_config          = local.alloy_config
-    grafana_datasources   = local.grafana_datasources
-    grafana_contactpoints = local.grafana_contactpoints
-    grafana_policies      = local.grafana_policies
-    grafana_rules         = local.grafana_rules
   }))
 
   root_block_device {
@@ -280,8 +269,11 @@ resource "local_file" "ssm_config_sync" {
       ["cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/rules.yaml << '____RULEEOF'"],
       split("\n", local.grafana_rules),
       ["____RULEEOF"],
-      # Reload Caddy and restart monitoring stack
-      ["cd /opt/killhouse && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || echo 'Caddy not running, skip reload'"]
+      # ECR login, pull new images, and restart all services
+      ["cd /opt/killhouse && aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${var.ecr_registry_url} 2>/dev/null || true"],
+      ["cd /opt/killhouse && docker compose pull 2>/dev/null || true"],
+      ["cd /opt/killhouse && docker compose up -d"],
+      ["cd /opt/killhouse && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile 2>/dev/null || echo 'Caddy not running yet, will start with compose'"]
     )
   })
 }

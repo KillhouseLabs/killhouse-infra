@@ -122,7 +122,7 @@ services:
   # =============================================================================
 
   grafana:
-    image: grafana/grafana:11-alpine
+    image: grafana/grafana:11.4.0
     expose:
       - "3001"
     environment:

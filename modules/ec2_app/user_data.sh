@@ -131,53 +131,11 @@ EOF
 
 chmod 600 /opt/killhouse/.env
 
-# Write Caddyfile
-cat > /opt/killhouse/Caddyfile << 'CADDYEOF'
-${caddyfile_content}
-CADDYEOF
-
-# Write docker-compose.yml
-cat > /opt/killhouse/docker-compose.yml << 'COMPOSEEOF'
-${compose_content}
-COMPOSEEOF
-
-# === LGTM Monitoring Config Files ===
-echo "=== Writing LGTM monitoring configs ==="
+# Config files (Caddyfile, docker-compose.yml, LGTM configs) are pushed
+# via SSM config sync after terraform apply. On first boot, the systemd
+# service will start once configs arrive.
+echo "=== Preparing directory structure ==="
 mkdir -p /opt/killhouse/lgtm/grafana/provisioning/{datasources,alerting}
-
-cat > /opt/killhouse/lgtm/loki-config.yaml << 'LOKICFG'
-${loki_config}
-LOKICFG
-
-cat > /opt/killhouse/lgtm/mimir-config.yaml << 'MIMIRCFG'
-${mimir_config}
-MIMIRCFG
-
-cat > /opt/killhouse/lgtm/alloy-config.alloy << 'ALLOYCFG'
-${alloy_config}
-ALLOYCFG
-
-cat > /opt/killhouse/lgtm/grafana/provisioning/datasources/datasources.yaml << 'DSCFG'
-${grafana_datasources}
-DSCFG
-
-cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/contactpoints.yaml << 'CPCFG'
-${grafana_contactpoints}
-CPCFG
-
-cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/policies.yaml << 'POLCFG'
-${grafana_policies}
-POLCFG
-
-cat > /opt/killhouse/lgtm/grafana/provisioning/alerting/rules.yaml << 'RULECFG'
-${grafana_rules}
-RULECFG
-
-# Pull images and start services
-echo "=== Starting Docker Compose services ==="
-cd /opt/killhouse
-docker compose pull || echo "Some images not available yet, will retry"
-docker compose up -d || echo "Docker Compose start deferred"
 
 # Create systemd service for killhouse
 cat > /etc/systemd/system/killhouse.service << 'SERVICEEOF'
@@ -272,7 +230,7 @@ cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWAG
       }
     },
     "append_dimensions": {
-      "InstanceId": "${aws:InstanceId}"
+      "InstanceId": "$${aws:InstanceId}"
     }
   }
 }
