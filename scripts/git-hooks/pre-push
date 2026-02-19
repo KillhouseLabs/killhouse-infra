@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pre-push hook: validate all Terraform modules
+
+echo "🔍 Validating Terraform modules..."
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+ERRORS=0
+
+for dir in "$REPO_ROOT"/modules/*/; do
+    module_name=$(basename "$dir")
+    echo "  Validating modules/$module_name..."
+    if ! (cd "$dir" && terraform init -backend=false -input=false > /dev/null 2>&1 && terraform validate) ; then
+        echo "  ✗ modules/$module_name failed validation"
+        ERRORS=$((ERRORS + 1))
+    fi
+done
+
+if [ "$ERRORS" -gt 0 ]; then
+    echo "❌ $ERRORS module(s) failed validation"
+    exit 1
+fi
+
+echo "✅ All modules validated successfully"

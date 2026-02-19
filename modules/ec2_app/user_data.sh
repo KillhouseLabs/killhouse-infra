@@ -171,4 +171,75 @@ cat > /etc/logrotate.d/killhouse << 'LOGEOF'
 }
 LOGEOF
 
+# === fail2ban installation and configuration ===
+echo "=== Installing and configuring fail2ban ==="
+dnf install -y fail2ban
+
+# Configure fail2ban for SSH
+cat > /etc/fail2ban/jail.local << 'FAIL2BAN'
+[DEFAULT]
+bantime = 600
+findtime = 600
+maxretry = 5
+backend = systemd
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+maxretry = 5
+bantime = 600
+
+[http-4xx]
+enabled = true
+port = http,https
+filter = http-4xx
+logpath = /var/log/caddy/access.log
+maxretry = 30
+findtime = 60
+bantime = 1800
+FAIL2BAN
+
+# Create custom filter for HTTP 4xx abuse
+cat > /etc/fail2ban/filter.d/http-4xx.conf << 'FILTER'
+[Definition]
+failregex = ^<HOST> .* "(GET|POST|PUT|DELETE|PATCH) .* HTTP/.*" (4[0-9]{2})
+ignoreregex =
+FILTER
+
+systemctl enable fail2ban
+systemctl start fail2ban
+
+# === CloudWatch Agent for memory and disk metrics ===
+echo "=== Installing CloudWatch Agent ==="
+dnf install -y amazon-cloudwatch-agent
+
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWAGENT'
+{
+  "metrics": {
+    "namespace": "CWAgent",
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_used_percent"],
+        "metrics_collection_interval": 300
+      },
+      "disk": {
+        "measurement": ["disk_used_percent"],
+        "metrics_collection_interval": 300,
+        "resources": ["/"]
+      }
+    },
+    "append_dimensions": {
+      "InstanceId": "${aws:InstanceId}"
+    }
+  }
+}
+CWAGENT
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+  -s
+
 echo "=== Killhouse App Setup Complete ==="
